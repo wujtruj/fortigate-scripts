@@ -4,7 +4,7 @@
 import paramiko
 import time
 
-HOST = '192.168.178.50'
+HOST = '192.168.111.104'
 USER = 'admin'
 PASS = 'admin1'
 sleepTime = 0.2
@@ -31,6 +31,14 @@ def exeCommand(command):
     time.sleep(sleepTime)
     resp = chan.recv(recvSize)
     return resp
+
+def checkVDOMs():
+    resp = exeCommand('conf vdom')
+    if "Command fail" in resp:
+        enabled = 0
+    else:
+        enabled = 1
+    return enabled
 
 def getAvProfiles():
     # Get list of AV profiles.
@@ -198,14 +206,17 @@ def main():
     # Main function of this program.
 
     connect(HOST, USER, PASS)
-    avList = getAvProfiles()
-    enAvUTMlog(avList)
-    wfList = getWfProfiles()
-    enWfUTMlog(wfList)
-    acList = getAcProfiles()
-    enAcUTMlog(acList)
-    sfList = getSfProfiles()
-    enSfUTMlog(sfList)
+    if checkVDOMs() == 0:
+        avList = getAvProfiles()
+        enAvUTMlog(avList)
+        wfList = getWfProfiles()
+        enWfUTMlog(wfList)
+        acList = getAcProfiles()
+        enAcUTMlog(acList)
+        sfList = getSfProfiles()
+        enSfUTMlog(sfList)
+    else:
+        print("Sorry, I don't know which VDOM to edit.")
     disconnect()
 
 if __name__ == "__main__":
