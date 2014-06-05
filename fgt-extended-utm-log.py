@@ -22,7 +22,6 @@ def parseArgs():
     args = parser.parse_args()
     return args
 
-
 def connect(host, user, passw):
     # Connect to FGT device.
     global ssh
@@ -59,7 +58,6 @@ def checkVDOMs(args):
             print("Sorry, VDOMs are enabled on this device. You have to choose one.")
             stop = 1
     return stop
-
 
 def getAvProfiles():
     # Get list of AV profiles.
