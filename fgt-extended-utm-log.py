@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import paramiko
+import argparse
 import time
 
 HOST = '192.168.111.104'
@@ -9,6 +10,18 @@ USER = 'admin'
 PASS = 'admin1'
 sleepTime = 0.2
 recvSize = 1024 # max nr of bytes to read
+
+def parseArgs():
+    # Parse arguments and display help
+    parser = argparse.ArgumentParser(description='Tool that enables extended UTM logging on FortiGate devices')
+    parser.add_argument('-v', '--vdom', help='select VDOM')
+    parser.add_argument('-av', help='enable extended UTM logging for antivirus module', action='store_true')
+    parser.add_argument('-wf', help='enable extended UTM logging for web filter module', action='store_true')
+    parser.add_argument('-sf', help='enable extended UTM logging for spam filter module', action='store_true')
+    parser.add_argument('-ac', help='enable extended UTM logging for application control module', action='store_true')
+    args = parser.parse_args()
+    return args
+
 
 def connect(host, user, passw):
     # Connect to FGT device.
@@ -32,13 +45,21 @@ def exeCommand(command):
     resp = chan.recv(recvSize)
     return resp
 
-def checkVDOMs():
+def checkVDOMs(args):
+    # Check if VDOMs are enabled and if script can edit selected VDOM
+    stop = 0
     resp = exeCommand('conf vdom')
-    if "Command fail" in resp:
-        enabled = 0
-    else:
-        enabled = 1
-    return enabled
+    if "Command fail" not in resp:
+        if args.vdom:
+            resp = exeCommand('edit %s' % args.vdom)
+            if "Command fail" in resp:
+                print("Could not edit or create VDOM %s." % args.vdom)
+                stop = 1
+        else:
+            print("Sorry, VDOMs are enabled on this device. You have to choose one.")
+            stop = 1
+    return stop
+
 
 def getAvProfiles():
     # Get list of AV profiles.
@@ -204,19 +225,32 @@ def enSfUTMlog(sfList):
 
 def main():
     # Main function of this program.
-
+    args = parseArgs()
     connect(HOST, USER, PASS)
-    if checkVDOMs() == 0:
-        avList = getAvProfiles()
-        enAvUTMlog(avList)
-        wfList = getWfProfiles()
-        enWfUTMlog(wfList)
-        acList = getAcProfiles()
-        enAcUTMlog(acList)
-        sfList = getSfProfiles()
-        enSfUTMlog(sfList)
-    else:
-        print("Sorry, I don't know which VDOM to edit.")
+    stop = checkVDOMs(args)
+    if not stop == 1:
+        if not (args.av or args.wf or args.sf or args.ac):
+            avList = getAvProfiles()
+            enAvUTMlog(avList)
+            wfList = getWfProfiles()
+            enWfUTMlog(wfList)
+            acList = getAcProfiles()
+            enAcUTMlog(acList)
+            sfList = getSfProfiles()
+            enSfUTMlog(sfList)
+        else:
+            if args.av:
+                avList = getAvProfiles()
+                enAvUTMlog(avList)
+            if args.wf:
+                wfList = getWfProfiles()
+                enWfUTMlog(wfList)
+            if args.ac:
+                acList = getAcProfiles()
+                enAcUTMlog(acList)
+            if args.sf:
+                sfList = getSfProfiles()
+                enSfUTMlog(sfList)
     disconnect()
 
 if __name__ == "__main__":
