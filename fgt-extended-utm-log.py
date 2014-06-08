@@ -3,11 +3,12 @@
 
 import paramiko
 import argparse
+from ConfigParser import SafeConfigParser
 import time
 
-HOST = '192.168.111.104'
-USER = 'admin'
-PASS = 'admin1'
+# HOST = '192.168.111.104'
+# USER = 'admin'
+# PASS = 'admin1'
 sleepTime = 0.2
 recvSize = 1024 # max nr of bytes to read
 
@@ -17,10 +18,41 @@ def parseArgs():
     parser.add_argument('-v', '--vdom', help='select VDOM')
     parser.add_argument('-av', help='enable extended UTM logging for antivirus module', action='store_true')
     parser.add_argument('-wf', help='enable extended UTM logging for web filter module', action='store_true')
-    parser.add_argument('-sf', help='enable extended UTM logging for spam filter module', action='store_true')
     parser.add_argument('-ac', help='enable extended UTM logging for application control module', action='store_true')
+    parser.add_argument('-sf', help='enable extended UTM logging for spam filter module', action='store_true')
     args = parser.parse_args()
     return args
+
+def configParser(parser, args, location):
+    vdom = None
+    av = None
+    wf = None
+    ac = None
+    sf = None
+    HOST = parser.get(location, 'host')
+    USER = parser.get(location, 'user')
+    PASS = parser.get(location, 'pass')
+    if parser.has_option(location, 'vdom'):
+        vdom = parser.get(location, 'vdom')
+    if args.vdom:
+        vdom = args.vdom
+    if parser.has_option(location, 'av'):
+        av = parser.get(location, 'av')
+    if args.av:
+        av = args.av
+    if parser.has_option(location, 'wf'):
+        wf = parser.get(location, 'wf')
+    if args.wf:
+        wf = args.wf
+    if parser.has_option(location, 'ac'):
+        ac = parser.get(location, 'ac')
+    if args.ac:
+        ac = args.ac
+    if parser.has_option(location, 'sf'):
+        sf = parser.get(location, 'sf')
+    if args.sf:
+        sf = args.sf
+    return (HOST, USER, PASS, vdom, av, wf, ac, sf)
 
 def connect(host, user, passw):
     # Connect to FGT device.
@@ -44,15 +76,15 @@ def exeCommand(command):
     resp = chan.recv(recvSize)
     return resp
 
-def checkVDOMs(args):
+def checkVDOMs(vdom):
     # Check if VDOMs are enabled and if script can edit selected VDOM
     stop = 0
     resp = exeCommand('conf vdom')
     if "Command fail" not in resp:
-        if args.vdom:
-            resp = exeCommand('edit %s' % args.vdom)
+        if vdom:
+            resp = exeCommand('edit %s' % vdom)
             if "Command fail" in resp:
-                print("Could not edit or create VDOM %s." % args.vdom)
+                print("Could not edit or create VDOM %s." % vdom)
                 stop = 1
         else:
             print("Sorry, VDOMs are enabled on this device. You have to choose one.")
@@ -79,7 +111,7 @@ def getAvProfiles():
 
 def enAvUTMlog(avList):
     # Enable Security Log for AV.
-    print ('====Antivirus====')
+    print ('---Antivirus---')
     for i in range(len(avList)):
         exeCommand('conf antivirus profile')
         exeCommand('edit %s' % avList[i])
@@ -114,7 +146,7 @@ def getWfProfiles():
     
 def enWfUTMlog(wfList):
     # Enable Security Log for WF.
-    print ('====Web Filter====')
+    print ('---Web Filter---')
     for i in range(len(wfList)):
         exeCommand('conf webfilter profile')
         exeCommand('edit %s' % wfList[i])
@@ -164,7 +196,7 @@ def getAcProfiles():
 
 def enAcUTMlog(acList):
     # Enable Security Log for AC.
-    print ('====Application Control====')
+    print ('---Application Control---')
     for i in range(len(acList)):
         exeCommand('conf application list')
         exeCommand('edit %s' % acList[i])
@@ -200,7 +232,7 @@ def getSfProfiles():
 
 def enSfUTMlog(sfList):
     # Enable Security Log for SF.
-    print ('====SPAM Filter====')
+    print ('---SPAM Filter---')
     for i in range(len(sfList)):
         exeCommand('conf spamfilter profile')
         exeCommand('edit %s' % sfList[i])
@@ -224,32 +256,37 @@ def enSfUTMlog(sfList):
 def main():
     # Main function of this program.
     args = parseArgs()
-    connect(HOST, USER, PASS)
-    stop = checkVDOMs(args)
-    if not stop == 1:
-        if not (args.av or args.wf or args.sf or args.ac):
-            avList = getAvProfiles()
-            enAvUTMlog(avList)
-            wfList = getWfProfiles()
-            enWfUTMlog(wfList)
-            acList = getAcProfiles()
-            enAcUTMlog(acList)
-            sfList = getSfProfiles()
-            enSfUTMlog(sfList)
-        else:
-            if args.av:
+    parser = SafeConfigParser()
+    parser.read('config.cfg')
+    for location in parser.sections():
+        HOST, USER, PASS, vdom, av, wf, ac, sf = configParser(parser, args, location)
+        print("===DEVICE: %s===" % location)
+        connect(HOST, USER, PASS)
+        stop = checkVDOMs(vdom)
+        if not stop == 1:
+            if not (av or wf or ac or sf):
                 avList = getAvProfiles()
                 enAvUTMlog(avList)
-            if args.wf:
                 wfList = getWfProfiles()
                 enWfUTMlog(wfList)
-            if args.ac:
                 acList = getAcProfiles()
                 enAcUTMlog(acList)
-            if args.sf:
                 sfList = getSfProfiles()
                 enSfUTMlog(sfList)
-    disconnect()
+            else:
+                if av:
+                    avList = getAvProfiles()
+                    enAvUTMlog(avList)
+                if wf:
+                    wfList = getWfProfiles()
+                    enWfUTMlog(wfList)
+                if ac:
+                    acList = getAcProfiles()
+                    enAcUTMlog(acList)
+                if sf:
+                    sfList = getSfProfiles()
+                    enSfUTMlog(sfList)
+        disconnect()
 
 if __name__ == "__main__":
     main()
