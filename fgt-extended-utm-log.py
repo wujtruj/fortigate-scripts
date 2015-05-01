@@ -6,9 +6,6 @@ import argparse
 from ConfigParser import SafeConfigParser
 import time
 
-# HOST = '192.168.111.104'
-# USER = 'admin'
-# PASS = 'admin1'
 sleepTime = 0.2
 recvSize = 1024 # max nr of bytes to read
 
@@ -29,7 +26,7 @@ def configParser(parser, args, location):
     wf = None
     ac = None
     sf = None
-    HOST = parser.get(location, 'host')
+    DEVICE = parser.get(location, 'device')
     USER = parser.get(location, 'user')
     PASS = parser.get(location, 'pass')
     if parser.has_option(location, 'vdom'):
@@ -52,16 +49,16 @@ def configParser(parser, args, location):
         sf = parser.get(location, 'sf')
     if args.sf:
         sf = args.sf
-    return (HOST, USER, PASS, vdom, av, wf, ac, sf)
+    return (DEVICE, USER, PASS, vdom, av, wf, ac, sf)
 
-def connect(host, user, passw):
+def connect(device, user, passw):
     # Connect to FGT device.
     global ssh
     global chan
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host, username=user, password=passw)
+    ssh.connect(device, username=user, password=passw)
     chan = ssh.invoke_shell()
 
 def disconnect():
@@ -259,9 +256,9 @@ def main():
     parser = SafeConfigParser()
     parser.read('config.cfg')
     for location in parser.sections():
-        HOST, USER, PASS, vdom, av, wf, ac, sf = configParser(parser, args, location)
+        DEVICE, USER, PASS, vdom, av, wf, ac, sf = configParser(parser, args, location)
         print("===DEVICE: %s===" % location)
-        connect(HOST, USER, PASS)
+        connect(DEVICE, USER, PASS)
         stop = checkVDOMs(vdom)
         if not stop == 1:
             if not (av or wf or ac or sf):
